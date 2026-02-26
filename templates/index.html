@@ -500,7 +500,7 @@
       <div class="ctrl-group">
         <span class="ctrl-label">Context</span>
         <input type="range" id="ctxMult" min="2" max="6" value="3" step="1"
-               oninput="document.getElementById('ctxLabel').textContent = this.value+'×h'" />
+               oninput="document.getElementById('ctxLabel').textContent = this.value+'×h'; debouncedForecast(500)" />
         <span id="ctxLabel" style="font-size:10px;color:var(--subtext0);min-width:22px">3×h</span>
       </div>
 
@@ -524,7 +524,7 @@
     <!-- Status bar -->
     <div class="status-bar">
       <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">pick a task · select models · click load</span>
+      <span id="statusText">loading…</span>
     </div>
 
     <!-- Chart panel -->
@@ -532,7 +532,7 @@
       <div class="empty-state" id="emptyState">
         <div class="empty-icon">◈</div>
         <div class="empty-title">no forecast yet</div>
-        <div class="empty-hint">select a task · choose models · click load</div>
+        <div class="empty-hint">select a task and models to visualize forecasts</div>
       </div>
     </div>
 
@@ -548,6 +548,12 @@ let itemIdx = 0;
 let nWindows = TASKS_META[0].num_windows;
 let nItems = 1;  // updated after first forecast
 let chartInstances = {};
+
+let _debounceTimer = null;
+function debouncedForecast(delay = 300) {
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(runForecast, delay);
+}
 
 const MODEL_META = {
   naive:             { label: 'Naïve',            color: '#7f849c', alpha: 'rgba(127,132,156,0.14)' },
@@ -600,6 +606,7 @@ function selectTask(idx) {
   updateNavUI();
   document.getElementById('itemId').textContent = '';
   loadBenchmarkMetrics(TASKS_META[idx].task_name);
+  runForecast();
 }
 
 function filterTasks(q) {
@@ -622,6 +629,7 @@ function navigate(type, delta) {
     itemIdx = Math.max(0, Math.min(nItems - 1, itemIdx + delta));
   }
   updateNavUI();
+  debouncedForecast();
 }
 
 function updateNavUI() {
@@ -637,6 +645,7 @@ function updateNavUI() {
 /* ── Model toggles ──────────────────────────────────────────────────────── */
 function toggleModel(btn) {
   btn.classList.toggle('active');
+  debouncedForecast();
 }
 
 function getSelectedModels() {
@@ -918,6 +927,7 @@ async function loadBenchmarkMetrics(datasetConfig) {
 renderModelButtons(0);
 updateNavUI();
 loadBenchmarkMetrics(TASKS_META[0].task_name);
+runForecast();
 </script>
 </body>
 </html>
