@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TS Benchmark Viz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <style>
+    /* ── Catppuccin Mocha palette ──────────────────────────────────────── */
+    :root {
+      --base:    #1e1e2e;
+      --mantle:  #181825;
+      --crust:   #11111b;
+      --surface0:#313244;
+      --surface1:#45475a;
+      --surface2:#585b70;
+      --overlay0:#6c7086;
+      --overlay1:#7f849c;
+      --text:    #cdd6f4;
+      --subtext0:#a6adc8;
+      --subtext1:#bac2de;
+      --blue:    #89b4fa;
+      --lavender:#b4befe;
+      --mauve:   #cba6f7;
+      --red:     #f38ba8;
+      --peach:   #fab387;
+      --yellow:  #f9e2af;
+      --green:   #a6e3a1;
+      --teal:    #94e2d5;
+      --sky:     #89dceb;
+      --pink:    #f5c2e7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--base);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────────── */
+    header {
+      background: var(--mantle);
+      border-bottom: 1px solid var(--surface0);
+      padding: 13px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .logo { font-size: 16px; font-weight: 600; color: var(--mauve); letter-spacing: -0.3px; }
+    .logo span { color: var(--blue); }
+    .tagline { font-size: 10px; color: var(--overlay0); margin-top: 1px; }
+    .header-pill {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--subtext0);
+      border: 1px solid var(--surface1);
+      border-radius: 99px;
+      padding: 3px 10px;
+    }
+
+    /* ── Shell ─────────────────────────────────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 1fr;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────────────── */
+    aside {
+      background: var(--mantle);
+      border-right: 1px solid var(--surface0);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar-search {
+      padding: 12px 12px 8px;
+      flex-shrink: 0;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface0);
+      border: 1px solid var(--surface1);
+      border-radius: 6px;
+      padding: 5px 10px;
+    }
+    .search-icon { color: var(--overlay0); font-size: 11px; }
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+      outline: none;
+      width: 100%;
+    }
+    .search-box input::placeholder { color: var(--overlay0); }
+
+    .task-count {
+      font-size: 9px;
+      color: var(--overlay0);
+      padding: 0 12px 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .task-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px 12px;
+    }
+
+    .task-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+      margin-bottom: 3px;
+    }
+    .task-item:hover { background: var(--surface0); }
+    .task-item.selected {
+      border-color: var(--mauve);
+      background: color-mix(in srgb, var(--mauve) 10%, var(--surface0));
+    }
+    .task-name {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-item.selected .task-name { color: var(--mauve); }
+    .task-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .badge {
+      font-size: 9px;
+      border-radius: 3px;
+      padding: 1px 5px;
+      border: 1px solid var(--surface1);
+      color: var(--subtext0);
+    }
+    .badge.freq   { border-color: var(--blue);   color: var(--blue); }
+    .badge.multi  { border-color: var(--peach);  color: var(--peach); }
+    .badge.window { border-color: var(--overlay0); }
+
+    /* ── Main area ─────────────────────────────────────────────────────── */
+    main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Controls bar */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--surface0);
+      background: var(--mantle);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ctrl-label {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--overlay0);
+    }
+
+    /* Nav buttons (prev/next) */
+    .nav-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .nav-btn {
+      background: var(--surface0);
+      border: 1px solid var(--surface1);
+      border-radius: 5px;
+      color: var(--subtext0);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 3px 9px;
+      line-height: 1;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .nav-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .nav-counter {
+      font-size: 11px;
+      color: var(--subtext1);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    /* Model toggles */
+    .model-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+    .model-toggle-btn {
+      border-radius: 5px;
+      border: 1px solid var(--surface1);
+      background: var(--surface0);
+      color: var(--overlay1);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      padding: 3px 9px;
+      transition: all 0.12s;
+    }
+    .model-toggle-btn.active { font-weight: 500; }
+    .model-toggle-btn[data-model="naive"].active               { border-color: #7f849c; color: #a6adc8; background: rgba(127,132,156,0.12); }
+    .model-toggle-btn[data-model="seasonal_naive"].active      { border-color: #89b4fa; color: #89b4fa; background: rgba(137,180,250,0.12); }
+    .model-toggle-btn[data-model="auto_ets"].active            { border-color: #a6e3a1; color: #a6e3a1; background: rgba(166,227,161,0.12); }
+    .model-toggle-btn[data-model="auto_arima"].active          { border-color: #f9e2af; color: #f9e2af; background: rgba(249,226,175,0.12); }
+    .model-toggle-btn[data-model="chronos_bolt_tiny"].active   { border-color: #cba6f7; color: #cba6f7; background: rgba(203,166,247,0.12); }
+    .model-toggle-btn[data-model="chronos_2"].active           { border-color: #f5c2e7; color: #f5c2e7; background: rgba(245,194,231,0.12); }
+
+    /* Context slider */
+    input[type="range"] { accent-color: var(--mauve); cursor: pointer; width: 80px; }
+
+    /* Run button */
+    .run-btn {
+      background: linear-gradient(135deg, var(--mauve), var(--blue));
+      border: none;
+      border-radius: 6px;
+      color: var(--crust);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 6px 16px;
+      margin-left: auto;
+      transition: opacity 0.12s;
+      white-space: nowrap;
+    }
+    .run-btn:hover { opacity: 0.88; }
+    .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Status bar ────────────────────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 18px;
+      font-size: 10.5px;
+      color: var(--overlay1);
+      border-bottom: 1px solid var(--surface0);
+      background: var(--crust);
+      flex-shrink: 0;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--overlay0);
+      flex-shrink: 0;
+    }
+    .status-dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+    .status-dot.done    { background: var(--green); }
+    .status-dot.error   { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* ── Chart panel ───────────────────────────────────────────────────── */
+    .chart-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--overlay0);
+      text-align: center;
+      padding: 40px;
+    }
+    .empty-icon { font-size: 40px; opacity: 0.35; }
+    .empty-title { font-size: 13px; color: var(--subtext0); }
+    .empty-hint  { font-size: 10.5px; }
+
+    /* Variable chart card */
+    .var-card {
+      background: var(--mantle);
+      border: 1px solid var(--surface0);
+      border-radius: 10px;
+      padding: 14px 16px 10px;
+      margin-bottom: 14px;
+    }
+    .var-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 12px;
+    }
+    .var-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .var-subtitle { font-size: 9.5px; color: var(--subtext0); margin-top: 1px; }
+    .var-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--subtext1);
+    }
+    .legend-line { width: 16px; height: 2px; border-radius: 1px; }
+    .var-chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+
+    /* Timing footer */
+    .timing-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 10px;
+      color: var(--overlay1);
+      margin-top: 4px;
+      padding: 8px 12px;
+      background: var(--crust);
+      border: 1px solid var(--surface0);
+      border-radius: 6px;
+    }
+    .timing-bar span { color: var(--subtext0); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--crust); }
+    ::-webkit-scrollbar-thumb { background: var(--surface1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--surface2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">ts<span>.</span>bench<span>.</span>viz</div>
+    <div class="tagline">fev bench · forecast explorer</div>
+  </div>
+  <div class="header-pill">Chronos-Bolt · StatsForecast · FEV tasks</div>
+</header>
+
+<div class="shell">
+
+  <!-- ── Sidebar: task list ── -->
+  <aside>
+    <div class="sidebar-search">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="search tasks…" oninput="filterTasks(this.value)" />
+      </div>
+    </div>
+    <div class="task-count" id="taskCount">{{ tasks_meta | length }} tasks</div>
+    <div class="task-list" id="taskList">
+      {% for t in tasks_meta %}
+      <div class="task-item {% if loop.first %}selected{% endif %}"
+           id="task-{{ t.idx }}"
+           data-idx="{{ t.idx }}"
+           data-name="{{ t.dataset_config.lower() }}"
+           onclick="selectTask({{ t.idx }})">
+        <div class="task-name">{{ t.dataset_config }}</div>
+        <div class="task-badges">
+          <span class="badge freq">{{ t.frequency }}</span>
+          <span class="badge">h={{ t.horizon }}</span>
+          <span class="badge">s={{ t.seasonality }}</span>
+          {% if t.is_multivariate %}<span class="badge multi">{{ t.target_columns | length }} vars</span>{% endif %}
+          <span class="badge window">{{ t.num_windows }}w</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Controls bar -->
+    <div class="controls-bar">
+
+      <!-- Window nav -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Window</span>
+        <div class="nav-group">
+          <button class="nav-btn" id="winPrev" onclick="navigate('window',-1)">‹</button>
+          <span class="nav-counter" id="winCounter">1 / 1</span>
+          <button class="nav-btn" id="winNext" onclick="navigate('window',+1)">›</button>
+        </div>
+      </div>
+
+      <div style="width:1px;height:20px;background:var(--surface1)"></div>
+
+      <!-- Item nav -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Series</span>
+        <div class="nav-group">
+          <button class="nav-btn" id="itemPrev" onclick="navigate('item',-1)">‹</button>
+          <span class="nav-counter" id="itemCounter">1 / 1</span>
+          <button class="nav-btn" id="itemNext" onclick="navigate('item',+1)">›</button>
+        </div>
+        <span id="itemId" style="font-size:10px;color:var(--overlay0);min-width:60px"></span>
+      </div>
+
+      <div style="width:1px;height:20px;background:var(--surface1)"></div>
+
+      <!-- Context multiplier -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Context</span>
+        <input type="range" id="ctxMult" min="2" max="6" value="3" step="1"
+               oninput="document.getElementById('ctxLabel').textContent = this.value+'×h'" />
+        <span id="ctxLabel" style="font-size:10px;color:var(--subtext0);min-width:22px">3×h</span>
+      </div>
+
+      <div style="width:1px;height:20px;background:var(--surface1)"></div>
+
+      <!-- Models -->
+      <div class="ctrl-group">
+        <span class="ctrl-label">Models</span>
+        <div class="model-toggles" id="modelToggles"></div>
+      </div>
+
+      <button class="run-btn" id="runBtn" onclick="runForecast()">▶ Load</button>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">pick a task · select models · click load</span>
+    </div>
+
+    <!-- Chart panel -->
+    <div class="chart-panel" id="chartPanel">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">◈</div>
+        <div class="empty-title">no forecast yet</div>
+        <div class="empty-hint">select a task · choose models · click load</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* ── State ──────────────────────────────────────────────────────────────── */
+const TASKS_META = {{ tasks_meta | tojson }};
+let selectedTaskIdx = 0;
+let windowIdx = 0;
+let itemIdx = 0;
+let nWindows = TASKS_META[0].num_windows;
+let nItems = 1;  // updated after first forecast
+let chartInstances = {};
+
+const MODEL_META = {
+  naive:             { label: 'Naïve',            color: '#7f849c', alpha: 'rgba(127,132,156,0.14)' },
+  seasonal_naive:    { label: 'Seas. Naïve',      color: '#89b4fa', alpha: 'rgba(137,180,250,0.14)' },
+  auto_ets:          { label: 'AutoETS',           color: '#a6e3a1', alpha: 'rgba(166,227,161,0.14)' },
+  auto_arima:        { label: 'AutoARIMA',         color: '#f9e2af', alpha: 'rgba(249,226,175,0.14)' },
+  chronos_bolt_tiny: { label: 'Chronos-Bolt-Tiny', color: '#cba6f7', alpha: 'rgba(203,166,247,0.16)' },
+  chronos_2:         { label: 'Chronos-2',         color: '#f5c2e7', alpha: 'rgba(245,194,231,0.16)' },
+};
+
+/* ── Model buttons ──────────────────────────────────────────────────────── */
+function renderModelButtons(taskIdx) {
+  const task = TASKS_META[taskIdx];
+  const container = document.getElementById('modelToggles');
+  const prev = getSelectedModels();
+  container.innerHTML = '';
+
+  if (!task.available_models.length) {
+    container.innerHTML = '<span style="color:var(--overlay0);font-size:10px">no data — run generate_forecasts.py</span>';
+    return;
+  }
+
+  task.available_models.forEach(modelId => {
+    const meta = MODEL_META[modelId] || { label: modelId };
+    const btn = document.createElement('button');
+    // Keep active if was active before, or activate all on fresh task select
+    const isActive = prev.length === 0 || prev.includes(modelId);
+    btn.className = 'model-toggle-btn' + (isActive ? ' active' : '');
+    btn.dataset.model = modelId;
+    btn.textContent = meta.label;
+    btn.onclick = () => toggleModel(btn);
+    container.appendChild(btn);
+  });
+}
+
+/* ── Task selection ─────────────────────────────────────────────────────── */
+function selectTask(idx) {
+  selectedTaskIdx = idx;
+  windowIdx = 0;
+  itemIdx = 0;
+  nWindows = TASKS_META[idx].num_windows;
+  nItems = 1;  // will be updated after first load
+
+  document.querySelectorAll('.task-item').forEach(el =>
+    el.classList.toggle('selected', parseInt(el.dataset.idx) === idx));
+
+  renderModelButtons(idx);
+  updateNavUI();
+  document.getElementById('itemId').textContent = '';
+}
+
+function filterTasks(q) {
+  q = q.toLowerCase().trim();
+  let count = 0;
+  document.querySelectorAll('.task-item').forEach(el => {
+    const name = el.dataset.name;
+    const show = !q || name.includes(q);
+    el.style.display = show ? '' : 'none';
+    if (show) count++;
+  });
+  document.getElementById('taskCount').textContent = count + ' tasks';
+}
+
+/* ── Window / item navigation ───────────────────────────────────────────── */
+function navigate(type, delta) {
+  if (type === 'window') {
+    windowIdx = Math.max(0, Math.min(nWindows - 1, windowIdx + delta));
+  } else {
+    itemIdx = Math.max(0, Math.min(nItems - 1, itemIdx + delta));
+  }
+  updateNavUI();
+}
+
+function updateNavUI() {
+  document.getElementById('winCounter').textContent = `${windowIdx + 1} / ${nWindows}`;
+  document.getElementById('winPrev').disabled = windowIdx === 0;
+  document.getElementById('winNext').disabled = windowIdx >= nWindows - 1;
+
+  document.getElementById('itemCounter').textContent = `${itemIdx + 1} / ${nItems}`;
+  document.getElementById('itemPrev').disabled = itemIdx === 0;
+  document.getElementById('itemNext').disabled = itemIdx >= nItems - 1;
+}
+
+/* ── Model toggles ──────────────────────────────────────────────────────── */
+function toggleModel(btn) {
+  btn.classList.toggle('active');
+}
+
+function getSelectedModels() {
+  return Array.from(document.querySelectorAll('.model-toggle-btn.active'))
+    .map(b => b.dataset.model);
+}
+
+/* ── Status ─────────────────────────────────────────────────────────────── */
+function setStatus(state, text) {
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  document.getElementById('statusText').textContent = text;
+}
+
+/* ── Chart builder ──────────────────────────────────────────────────────── */
+function buildVarChart(canvasId, varData, targetCol, horizon) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (chartInstances[canvasId]) {
+    chartInstances[canvasId].destroy();
+    delete chartInstances[canvasId];
+  }
+
+  const ctx = canvas.getContext('2d');
+  const ctxLen = varData.context.length;
+  const futLen = varData.actual_future.length;
+  const labels = Array.from({ length: ctxLen + futLen }, (_, i) => i - ctxLen);
+
+  const contextData  = [...varData.context, ...Array(futLen).fill(null)];
+  const actualData   = [...Array(ctxLen - 1).fill(null), varData.context[ctxLen - 1], ...varData.actual_future];
+
+  const datasets = [
+    { label: 'context', data: contextData, borderColor: '#cdd6f4', borderWidth: 1.5, pointRadius: 0, tension: 0, order: 100 },
+    { label: 'actual',  data: actualData,  borderColor: '#cdd6f4', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, tension: 0, order: 99 },
+  ];
+
+  let legendHtml = `<div class="legend-item"><div class="legend-line" style="background:#cdd6f4"></div><span>actual</span></div>`;
+
+  Object.entries(varData.forecasts).forEach(([modelId, forecast]) => {
+    if (forecast.error) {
+      legendHtml += `<div class="legend-item" style="color:var(--red)" title="${forecast.error}">⚠ ${modelId}</div>`;
+      return;
+    }
+    const meta = MODEL_META[modelId] || { label: modelId, color: '#fab387', alpha: 'rgba(250,179,135,0.14)' };
+
+    const bridge = varData.context[ctxLen - 1];
+    const pad = Array(ctxLen - 1).fill(null);
+    const loData   = [...pad, bridge, ...forecast.lo80];
+    const hiData   = [...pad, bridge, ...forecast.hi80];
+    const meanData = [...pad, bridge, ...forecast.mean];
+
+    // lo first, then hi fills toward it
+    datasets.push({ label: `${modelId}_lo`, data: loData, borderColor: 'transparent', fill: false, pointRadius: 0, tension: 0, order: 51 });
+    datasets.push({ label: `${modelId}_hi`, data: hiData, borderColor: 'transparent', backgroundColor: meta.alpha, fill: '-1', pointRadius: 0, tension: 0, order: 50 });
+    datasets.push({ label: meta.label, data: meanData, borderColor: meta.color, borderWidth: 2, fill: false, pointRadius: 0, tension: 0, order: 10 });
+
+    legendHtml += `<div class="legend-item"><div class="legend-line" style="background:${meta.color}"></div><span>${meta.label}</span></div>`;
+  });
+
+  document.getElementById(canvasId + '_legend').innerHTML = legendHtml;
+
+  const sepX = ctxLen - 1;
+
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#313244',
+          borderColor: '#45475a',
+          borderWidth: 1,
+          titleColor: '#bac2de',
+          bodyColor: '#a6adc8',
+          padding: 8,
+          callbacks: {
+            title: items => `t = ${items[0].label}`,
+            label: item => {
+              const lbl = item.dataset.label;
+              if (/_lo$|_hi$/.test(lbl)) return null;
+              if (item.raw == null) return null;
+              return ` ${lbl}: ${Number(item.raw).toPrecision(5)}`;
+            },
+          },
+          filter: item => !/_lo$|_hi$/.test(item.dataset.label),
+        },
+        annotation: {
+          annotations: {
+            sep: {
+              type: 'line',
+              xMin: sepX, xMax: sepX,
+              borderColor: '#f38ba8',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              label: {
+                display: true,
+                content: '→ forecast',
+                position: 'start',
+                color: '#f38ba8',
+                backgroundColor: 'transparent',
+                font: { family: "'JetBrains Mono', monospace", size: 9 },
+                yAdjust: -6,
+              },
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#6c7086', maxTicksLimit: 10, font: { family: "'JetBrains Mono', monospace", size: 9 } }, grid: { color: '#313244' }, border: { color: '#45475a' } },
+        y: { ticks: { color: '#6c7086', font: { family: "'JetBrains Mono', monospace", size: 9 }, callback: v => Number(v).toPrecision(4) }, grid: { color: '#313244' }, border: { color: '#45475a' } },
+      },
+    },
+  });
+}
+
+/* ── Render results ─────────────────────────────────────────────────────── */
+function renderResults(data) {
+  const panel = document.getElementById('chartPanel');
+
+  // Clear old charts
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  panel.innerHTML = '';
+
+  const vars = Object.entries(data.variables);
+
+  vars.forEach(([col, varData], vi) => {
+    const canvasId = `chart_${vi}`;
+    const nForecasts = Object.keys(varData.forecasts).length;
+
+    const card = document.createElement('div');
+    card.className = 'var-card';
+    card.innerHTML = `
+      <div class="var-header">
+        <div>
+          <div class="var-title">${col === 'target' ? data.dataset_config : col}</div>
+          <div class="var-subtitle">
+            ctx ${varData.context.length} pts · h=${data.horizon} · ${data.frequency} ·
+            window ${data.window_idx + 1}/${data.num_windows} ·
+            series ${data.item_idx + 1}/${data.n_items} (${data.item_id})
+          </div>
+        </div>
+        <div class="var-legend" id="${canvasId}_legend"></div>
+      </div>
+      <div class="var-chart-wrap">
+        <canvas id="${canvasId}"></canvas>
+      </div>
+    `;
+    panel.appendChild(card);
+  });
+
+  // Add timing bar
+  if (Object.keys(data.timing).length) {
+    const timing = document.createElement('div');
+    timing.className = 'timing-bar';
+    timing.innerHTML = Object.entries(data.timing)
+      .map(([k, v]) => `<span>${k}:</span> ${v}s`)
+      .join(' · ');
+    panel.appendChild(timing);
+  }
+
+  // Build charts after DOM update
+  requestAnimationFrame(() => {
+    vars.forEach(([col, varData], vi) => {
+      buildVarChart(`chart_${vi}`, varData, col, data.horizon);
+    });
+  });
+}
+
+/* ── Forecast ───────────────────────────────────────────────────────────── */
+async function runForecast() {
+  const models = getSelectedModels();
+  if (!models.length) { setStatus('error', 'select at least one model'); return; }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('emptyState')?.remove();
+  setStatus('running', `loading task ${TASKS_META[selectedTaskIdx].dataset_config} · window ${windowIdx + 1} · series ${itemIdx + 1}…`);
+
+  try {
+    const resp = await fetch('/api/forecast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_idx: selectedTaskIdx,
+        window_idx: windowIdx,
+        item_idx: itemIdx,
+        models,
+        context_multiplier: parseInt(document.getElementById('ctxMult').value),
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || resp.statusText);
+    }
+
+    const data = await resp.json();
+
+    // Update state
+    nItems = data.n_items;
+    document.getElementById('itemId').textContent = `id: ${data.item_id}`;
+    updateNavUI();
+
+    renderResults(data);
+
+    const errs = Object.values(data.variables)
+      .flatMap(v => Object.entries(v.forecasts).filter(([, f]) => f.error).map(([m, f]) => `${m}: ${f.error}`));
+    if (errs.length) {
+      setStatus('error', `done (${errs.length} model error(s)) · ${Object.keys(data.timing).map(k => `${k}=${data.timing[k]}s`).join(', ')}`);
+    } else {
+      const n = Object.keys(data.variables[data.target_columns[0]].forecasts).length;
+      setStatus('done', `${n} model(s) · ${data.target_columns.length} variable(s) · ${Object.keys(data.timing).map(k => `${k}=${data.timing[k]}s`).join(', ')}`);
+    }
+
+  } catch (e) {
+    setStatus('error', 'error: ' + e.message);
+    if (!document.getElementById('chartPanel').children.length) {
+      document.getElementById('chartPanel').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-title">request failed</div><div class="empty-hint">${e.message}</div></div>`;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Init
+renderModelButtons(0);
+updateNavUI();
+</script>
+</body>
+</html>
