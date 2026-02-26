@@ -3,6 +3,7 @@ TS Benchmark Viz — FastAPI backend (static-forecast edition)
 Serves pre-generated forecasts from the forecasts/ directory.
 Run generate_forecasts.py first to populate it.
 """
+
 import math
 import time
 from pathlib import Path
@@ -26,8 +27,61 @@ templates = Jinja2Templates(directory="templates")
 # Load tasks
 # ---------------------------------------------------------------------------
 
-TASKS_YAML = Path("benchmarks/fev_bench/tasks.yaml")
+TASKS_YAML = Path("benchmarks/fev_bench/foundation_fails.yaml")
 FORECASTS_DIR = Path("forecasts")
+RESULTS_BASE_URL = "https://raw.githubusercontent.com/autogluon/fev/refs/heads/main/benchmarks/fev_bench/results"
+
+# Mapping from webapp model id → CSV filename (and expected model_name prefix for dedup)
+_MODEL_CSV_MAP = {
+    "naive": "naive.csv",
+    "seasonal_naive": "seasonal_naive.csv",
+    "auto_arima": "autoarima.csv",
+    "auto_ets": "autoets.csv",
+    "chronos_bolt_tiny": "chronos-bolt.csv",
+    "chronos_2": "chronos-2.csv",
+    "lightgbm": "lightgbm.csv",
+    "catboost": "catboost.csv",
+}
+
+
+def _load_benchmark_metrics() -> dict[str, dict[str, dict]]:
+    """Load MASE and SQL per task from each model's results CSV.
+
+    Returns: {model_id: {task_name_lower: {"MASE": float, "SQL": float}}}
+    """
+    out: dict[str, dict[str, dict]] = {}
+    for model_id, csv_file in _MODEL_CSV_MAP.items():
+        url = f"{RESULTS_BASE_URL}/{csv_file}"
+        try:
+            df = pd.read_csv(url)
+            task_metrics: dict[str, dict] = {}
+            for _, row in df.iterrows():
+                task = str(row.get("task_name", "")).strip()
+                if not task:
+                    continue
+                mase = row.get("MASE")
+                sql = row.get("SQL")
+                task_metrics[task.lower()] = {
+                    "MASE": None
+                    if (
+                        mase is None
+                        or (isinstance(mase, float) and not math.isfinite(mase))
+                    )
+                    else round(float(mase), 4),
+                    "SQL": None
+                    if (
+                        sql is None
+                        or (isinstance(sql, float) and not math.isfinite(sql))
+                    )
+                    else round(float(sql), 4),
+                }
+            out[model_id] = task_metrics
+        except Exception:
+            pass
+    return out
+
+
+BENCHMARK_METRICS: dict[str, dict[str, dict]] = _load_benchmark_metrics()
 
 with open(TASKS_YAML) as f:
     _yaml_data = yaml.safe_load(f)
@@ -43,16 +97,32 @@ def _task_display_name(task: fev.Task) -> str:
 
 def _infer_freq(seasonality: int, dataset_config: str) -> str:
     cfg = dataset_config.lower()
-    if "_10t" in cfg or "_10m" in cfg: return "10-min"
-    if "_15t" in cfg or "_15m" in cfg: return "15-min"
-    if "_30t" in cfg or "_30m" in cfg: return "30-min"
-    if "_1h" in cfg: return "hourly"
-    if "_1d" in cfg: return "daily"
-    if "_1w" in cfg: return "weekly"
-    if "_1m" in cfg: return "monthly"
-    freq_map = {1: "annual", 4: "quarterly", 5: "daily(bus)", 7: "daily",
-                12: "monthly", 24: "hourly", 52: "weekly", 144: "10-min",
-                168: "hourly", 288: "5-min"}
+    if "_10t" in cfg or "_10m" in cfg:
+        return "10-min"
+    if "_15t" in cfg or "_15m" in cfg:
+        return "15-min"
+    if "_30t" in cfg or "_30m" in cfg:
+        return "30-min"
+    if "_1h" in cfg:
+        return "hourly"
+    if "_1d" in cfg:
+        return "daily"
+    if "_1w" in cfg:
+        return "weekly"
+    if "_1m" in cfg:
+        return "monthly"
+    freq_map = {
+        1: "annual",
+        4: "quarterly",
+        5: "daily(bus)",
+        7: "daily",
+        12: "monthly",
+        24: "hourly",
+        52: "weekly",
+        144: "10-min",
+        168: "hourly",
+        288: "5-min",
+    }
     return freq_map.get(seasonality, f"s={seasonality}")
 
 
@@ -62,27 +132,29 @@ def _available_models(dataset_config: str) -> list[str]:
     if not task_dir.exists():
         return []
     return sorted(
-        d.name for d in task_dir.iterdir()
-        if d.is_dir() and (d / "info.json").exists()
+        d.name for d in task_dir.iterdir() if d.is_dir() and (d / "info.json").exists()
     )
 
 
 def _tasks_metadata() -> list[dict]:
     out = []
     for i, task in enumerate(TASKS):
-        out.append({
-            "idx": i,
-            "dataset_config": task.dataset_config,
-            "display_name": _task_display_name(task),
-            "horizon": task.horizon,
-            "num_windows": task.num_windows,
-            "seasonality": task.seasonality,
-            "target_columns": task.target_columns,
-            "is_multivariate": task.is_multivariate,
-            "frequency": _infer_freq(task.seasonality, task.dataset_config),
-            "has_known_dynamic": bool(task.known_dynamic_columns),
-            "available_models": _available_models(task.dataset_config),
-        })
+        out.append(
+            {
+                "idx": i,
+                "dataset_config": task.dataset_config,
+                "task_name": task.task_name,
+                "display_name": _task_display_name(task),
+                "horizon": task.horizon,
+                "num_windows": task.num_windows,
+                "seasonality": task.seasonality,
+                "target_columns": task.target_columns,
+                "is_multivariate": task.is_multivariate,
+                "frequency": _infer_freq(task.seasonality, task.dataset_config),
+                "has_known_dynamic": bool(task.known_dynamic_columns),
+                "available_models": _available_models(task.dataset_config),
+            }
+        )
     return out
 
 
@@ -117,6 +189,7 @@ def _read_parquet_row(path: Path, item_idx: int) -> dict | None:
 # Request model
 # ---------------------------------------------------------------------------
 
+
 class ForecastRequest(BaseModel):
     task_idx: int
     window_idx: int = 0
@@ -128,6 +201,7 @@ class ForecastRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -142,10 +216,24 @@ async def get_tasks():
     return TASKS_META
 
 
+@app.get("/api/metrics")
+async def get_metrics(task_name: str):
+    """Return MASE and SQL from the fev_bench results CSVs for a given task."""
+    task_key = task_name.lower()
+    result: dict[str, dict] = {}
+    for model_id, task_dict in BENCHMARK_METRICS.items():
+        metrics = task_dict.get(task_key)
+        if metrics is not None:
+            result[model_id] = metrics
+    return result
+
+
 @app.post("/api/forecast")
 async def run_forecast(body: ForecastRequest):
     if body.task_idx < 0 or body.task_idx >= len(TASKS):
-        raise HTTPException(status_code=404, detail=f"task_idx out of range (0–{len(TASKS)-1})")
+        raise HTTPException(
+            status_code=404, detail=f"task_idx out of range (0–{len(TASKS) - 1})"
+        )
 
     task = TASKS[body.task_idx]
     task_meta = TASKS_META[body.task_idx]
@@ -156,7 +244,9 @@ async def run_forecast(body: ForecastRequest):
             detail=f"window_idx out of range (0–{task.num_windows - 1})",
         )
 
-    context_path = FORECASTS_DIR / task.dataset_config / f"context_w{body.window_idx}.parquet"
+    context_path = (
+        FORECASTS_DIR / task.dataset_config / f"context_w{body.window_idx}.parquet"
+    )
     if not context_path.exists():
         raise HTTPException(
             status_code=404,
@@ -178,7 +268,9 @@ async def run_forecast(body: ForecastRequest):
     # Read context / ground truth row
     ctx_row = _read_parquet_row(context_path, body.item_idx)
     if ctx_row is None:
-        raise HTTPException(status_code=500, detail="item_idx not found in context file")
+        raise HTTPException(
+            status_code=500, detail="item_idx not found in context file"
+        )
 
     item_id = ctx_row["item_id"]
     display_len = max(2, min(body.context_multiplier, 8)) * task.horizon
@@ -191,7 +283,9 @@ async def run_forecast(body: ForecastRequest):
     for col in task.target_columns:
         ctx_full = _col(ctx_row, f"{col}__context")
         actual = _col(ctx_row, f"{col}__actual")
-        ctx_display = ctx_full[-display_len:] if len(ctx_full) > display_len else ctx_full
+        ctx_display = (
+            ctx_full[-display_len:] if len(ctx_full) > display_len else ctx_full
+        )
         variables[col] = {
             "context": _sanitize(ctx_display),
             "actual_future": _sanitize(actual),
@@ -217,7 +311,9 @@ async def run_forecast(body: ForecastRequest):
         row = _read_parquet_row(model_path, body.item_idx)
         if row is None:
             for col in task.target_columns:
-                variables[col]["forecasts"][model_name] = {"error": "item not found in forecast file"}
+                variables[col]["forecasts"][model_name] = {
+                    "error": "item not found in forecast file"
+                }
             timing[model_name] = round(time.perf_counter() - t0, 4)
             continue
 

@@ -246,6 +246,8 @@
     .model-toggle-btn[data-model="auto_arima"].active          { border-color: #f9e2af; color: #f9e2af; background: rgba(249,226,175,0.12); }
     .model-toggle-btn[data-model="chronos_bolt_tiny"].active   { border-color: #cba6f7; color: #cba6f7; background: rgba(203,166,247,0.12); }
     .model-toggle-btn[data-model="chronos_2"].active           { border-color: #f5c2e7; color: #f5c2e7; background: rgba(245,194,231,0.12); }
+    .model-toggle-btn[data-model="lightgbm"].active            { border-color: #fab387; color: #fab387; background: rgba(250,179,135,0.12); }
+    .model-toggle-btn[data-model="catboost"].active            { border-color: #94e2d5; color: #94e2d5; background: rgba(148,226,213,0.12); }
 
     /* Context slider */
     input[type="range"] { accent-color: var(--mauve); cursor: pointer; width: 80px; }
@@ -357,20 +359,63 @@
       height: 220px;
     }
 
-    /* Timing footer */
-    .timing-bar {
+    /* ── Benchmark metrics bar ──────────────────────────────────────── */
+    .metrics-bar {
       display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-size: 10px;
-      color: var(--overlay1);
-      margin-top: 4px;
-      padding: 8px 12px;
-      background: var(--crust);
-      border: 1px solid var(--surface0);
-      border-radius: 6px;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 18px;
+      border-bottom: 1px solid var(--surface0);
+      background: var(--mantle);
+      flex-shrink: 0;
+      min-height: 32px;
+      overflow-x: auto;
     }
-    .timing-bar span { color: var(--subtext0); }
+    .metrics-label {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--overlay0);
+      flex-shrink: 0;
+    }
+    .metrics-table {
+      border-collapse: collapse;
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+    .metrics-table th,
+    .metrics-table td {
+      padding: 2px 10px;
+      text-align: right;
+    }
+    .metrics-table th:first-child,
+    .metrics-table td:first-child {
+      text-align: left;
+      padding-left: 0;
+    }
+    .metrics-table thead th {
+      font-size: 10px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--surface1);
+      padding-bottom: 3px;
+    }
+    .metrics-table .metric-row td:first-child {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--overlay1);
+      font-weight: 500;
+      padding-right: 6px;
+    }
+    .metrics-table .metric-row td {
+      color: var(--subtext1);
+      font-variant-numeric: tabular-nums;
+    }
+    .metrics-empty {
+      font-size: 10px;
+      color: var(--overlay0);
+      font-style: italic;
+    }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -470,6 +515,12 @@
       <button class="run-btn" id="runBtn" onclick="runForecast()">▶ Load</button>
     </div>
 
+    <!-- Benchmark metrics bar -->
+    <div class="metrics-bar" id="metricsBar">
+      <span class="metrics-label">Benchmark</span>
+      <span class="metrics-empty" id="metricsEmpty">select a task to see aggregate metrics</span>
+    </div>
+
     <!-- Status bar -->
     <div class="status-bar">
       <div class="status-dot" id="statusDot"></div>
@@ -505,6 +556,8 @@ const MODEL_META = {
   auto_arima:        { label: 'AutoARIMA',         color: '#f9e2af', alpha: 'rgba(249,226,175,0.14)' },
   chronos_bolt_tiny: { label: 'Chronos-Bolt-Tiny', color: '#cba6f7', alpha: 'rgba(203,166,247,0.16)' },
   chronos_2:         { label: 'Chronos-2',         color: '#f5c2e7', alpha: 'rgba(245,194,231,0.16)' },
+  lightgbm:          { label: 'LightGBM',          color: '#fab387', alpha: 'rgba(250,179,135,0.16)' },
+  catboost:          { label: 'CatBoost',          color: '#94e2d5', alpha: 'rgba(148,226,213,0.16)' },
 };
 
 /* ── Model buttons ──────────────────────────────────────────────────────── */
@@ -546,6 +599,7 @@ function selectTask(idx) {
   renderModelButtons(idx);
   updateNavUI();
   document.getElementById('itemId').textContent = '';
+  loadBenchmarkMetrics(TASKS_META[idx].task_name);
 }
 
 function filterTasks(q) {
@@ -740,16 +794,6 @@ function renderResults(data) {
     panel.appendChild(card);
   });
 
-  // Add timing bar
-  if (Object.keys(data.timing).length) {
-    const timing = document.createElement('div');
-    timing.className = 'timing-bar';
-    timing.innerHTML = Object.entries(data.timing)
-      .map(([k, v]) => `<span>${k}:</span> ${v}s`)
-      .join(' · ');
-    panel.appendChild(timing);
-  }
-
   // Build charts after DOM update
   requestAnimationFrame(() => {
     vars.forEach(([col, varData], vi) => {
@@ -798,10 +842,10 @@ async function runForecast() {
     const errs = Object.values(data.variables)
       .flatMap(v => Object.entries(v.forecasts).filter(([, f]) => f.error).map(([m, f]) => `${m}: ${f.error}`));
     if (errs.length) {
-      setStatus('error', `done (${errs.length} model error(s)) · ${Object.keys(data.timing).map(k => `${k}=${data.timing[k]}s`).join(', ')}`);
+      setStatus('error', `done (${errs.length} model error(s))`);;
     } else {
       const n = Object.keys(data.variables[data.target_columns[0]].forecasts).length;
-      setStatus('done', `${n} model(s) · ${data.target_columns.length} variable(s) · ${Object.keys(data.timing).map(k => `${k}=${data.timing[k]}s`).join(', ')}`);
+      setStatus('done', `${n} model(s) · ${data.target_columns.length} variable(s)`);
     }
 
   } catch (e) {
@@ -814,9 +858,66 @@ async function runForecast() {
   }
 }
 
+/* ── Benchmark metrics ──────────────────────────────────────────────── */
+async function loadBenchmarkMetrics(datasetConfig) {
+  const bar = document.getElementById('metricsBar');
+  const empty = document.getElementById('metricsEmpty');
+
+  // Remove old table if present
+  bar.querySelector('.metrics-table')?.remove();
+  if (empty) empty.style.display = '';
+
+  try {
+    const resp = await fetch(`/api/metrics?task_name=${encodeURIComponent(datasetConfig)}`);
+    if (!resp.ok) return;
+    const metrics = await resp.json();
+
+    const entries = Object.entries(metrics);
+    if (!entries.length) {
+      if (empty) { empty.textContent = 'no benchmark data for this task'; empty.style.display = ''; }
+      return;
+    }
+
+    if (empty) empty.style.display = 'none';
+
+    // Build table: header row = model names, data rows = MASE, SQL
+    const table = document.createElement('table');
+    table.className = 'metrics-table';
+
+    // Header
+    const thead = table.createTHead();
+    const hrow = thead.insertRow();
+    hrow.insertCell().textContent = ''; // row-label corner
+    entries.forEach(([modelId]) => {
+      const meta = MODEL_META[modelId] || { label: modelId, color: '#a6adc8' };
+      const th = document.createElement('th');
+      th.textContent = meta.label;
+      th.style.color = meta.color;
+      hrow.appendChild(th);
+    });
+
+    // Data rows
+    const tbody = table.createTBody();
+    ['MASE', 'SQL'].forEach(metric => {
+      const row = tbody.insertRow();
+      row.className = 'metric-row';
+      row.insertCell().textContent = metric;
+      entries.forEach(([, m]) => {
+        const val = m[metric];
+        row.insertCell().textContent = val != null ? val.toFixed(4) : '—';
+      });
+    });
+
+    bar.appendChild(table);
+  } catch (_) {
+    // silently ignore fetch errors
+  }
+}
+
 // Init
 renderModelButtons(0);
 updateNavUI();
+loadBenchmarkMetrics(TASKS_META[0].task_name);
 </script>
 </body>
 </html>

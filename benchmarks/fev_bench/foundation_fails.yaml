@@ -1,0 +1,227 @@
+tasks:
+- dataset_path: autogluon/fev_datasets
+  horizon: 8
+  num_windows: 4
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: [cumulative_cases, cumulative_deaths, cumulative_admissions]
+  past_dynamic_columns: [cumulative_vaccinated_1, cumulative_vaccinated_2, cumulative_vaccinated_3, hospital_cases, icu_ventilator_occupancy]
+  static_columns: []
+  dataset_config: uk_covid_nation_1W
+  task_name: uk_covid_nation_1W/cumulative
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 5
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: cumulative_cases
+  static_columns: []
+  dataset_config: uk_covid_utla_1W
+  task_name: uk_covid_utla_1W/cumulative
+- dataset_path: autogluon/fev_datasets
+  horizon: 5
+  num_windows: 2
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: world_tourism
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 20
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: [cumulative_cases, cumulative_deaths, cumulative_admissions]
+  past_dynamic_columns: [cumulative_vaccinated_1, cumulative_vaccinated_2, cumulative_vaccinated_3, hospital_cases, icu_ventilator_occupancy]
+  static_columns: []
+  dataset_config: uk_covid_nation_1D
+  task_name: uk_covid_nation_1D/cumulative
+- dataset_path: autogluon/fev_datasets
+  horizon: 5
+  num_windows: 10
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: us_consumption_1Y
+- dataset_path: autogluon/fev_datasets
+  horizon: 8
+  num_windows: 5
+  initial_cutoff: '2023-05-01'
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: orders
+  known_dynamic_columns: [holiday, shops_closed, winter_school_holidays, school_holidays]
+  past_dynamic_columns: [shutdown, mini_shutdown, blackout, mov_change, frankfurt_shutdown, precipitation, snow, user_activity_1, user_activity_2]
+  static_columns: []
+  dataset_config: rohlik_orders_1W
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 10
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: transactions
+  past_dynamic_columns: [oil_price]
+  static_columns: [store_nbr, city, state, type, cluster]
+  dataset_config: favorita_transactions_1W
+- dataset_path: autogluon/fev_datasets
+  horizon: 8
+  num_windows: 10
+  seasonality: 4
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: [y, Dp, eq, ep, r, lr]
+  past_dynamic_columns: [poil, pmat, pmetal]
+  static_columns: []
+  dataset_config: gvar
+- dataset_path: autogluon/fev_datasets
+  horizon: 14
+  num_windows: 1
+  initial_cutoff: '2023-12-15'
+  min_context_length: 14
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: orders
+  known_dynamic_columns: [holiday, shops_closed, winter_school_holidays, school_holidays]
+  past_dynamic_columns: [shutdown, mini_shutdown, blackout, mov_change, frankfurt_shutdown, precipitation, snow, user_activity_1, user_activity_2]
+  static_columns: []
+  dataset_config: rohlik_orders_1D
+- dataset_path: autogluon/fev_datasets
+  horizon: 12
+  num_windows: 10
+  seasonality: 12
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: us_consumption_1M
+- dataset_path: autogluon/fev_datasets
+  horizon: 5
+  num_windows: 9
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: world_co2_emissions
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 5
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  target: [HUFL, HULL, MUFL, MULL, LUFL, LULL, OT]
+  static_columns: []
+  dataset_config: ETT_1W
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 10
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: ecdc_ili
+- dataset_path: autogluon/fev_datasets
+  horizon: 12
+  num_windows: 15
+  seasonality: 12
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: ercot_1M
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 16
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: hospital_admissions_1W
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 20
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: hospital_admissions_1D
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 10
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - {name: WAPE, epsilon: 1.0}
+  - {name: WQL, epsilon: 1.0}
+  quantile_levels: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  static_columns: []
+  dataset_config: hierarchical_sales_1D

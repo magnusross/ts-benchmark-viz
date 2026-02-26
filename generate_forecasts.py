@@ -40,7 +40,6 @@ import argparse
 import importlib.util
 import json
 import math
-import subprocess
 import sys
 from pathlib import Path
 
@@ -56,38 +55,28 @@ hf_datasets.disable_progress_bars()
 # Constants
 # ---------------------------------------------------------------------------
 
-FEV_REPO_URL = "https://github.com/autogluon/fev.git"
-FEV_REPO_DIR = Path("fev_repo")
+LOCAL_EXAMPLES_DIR = Path("examples")
 TASKS_YAML = Path("benchmarks/fev_bench/tasks.yaml")
+FOUNDATION_FAILS_YAML = Path("benchmarks/fev_bench/foundation_fails.yaml")
 FORECASTS_DIR = Path("forecasts")
+
+BENCHMARK_YAMLS = {
+    "fev_bench": TASKS_YAML,
+    "foundation_fails": FOUNDATION_FAILS_YAML,
+}
 
 # Map model name → backend example script
 AVAILABLE_MODELS = {
-    "naive":             "statsforecast",
-    "seasonal_naive":    "statsforecast",
-    "auto_ets":          "statsforecast",
-    "auto_arima":        "statsforecast",
+    "naive": "statsforecast",
+    "seasonal_naive": "statsforecast",
+    "auto_ets": "statsforecast",
+    "auto_arima": "statsforecast",
     "chronos_bolt_tiny": "chronos",
-    "chronos_2":         "chronos_2",
+    "chronos_2": "chronos_2",
+    "lightgbm": "mlforecast",
+    "catboost": "mlforecast",
 }
 DEFAULT_MODELS = ["seasonal_naive", "auto_ets"]
-
-
-# ---------------------------------------------------------------------------
-# Repo management
-# ---------------------------------------------------------------------------
-
-def ensure_fev_repo() -> None:
-    """Clone the autogluon/fev repo if not already present."""
-    if FEV_REPO_DIR.exists():
-        print(f"[repo] Using existing clone at {FEV_REPO_DIR}/")
-        return
-    print("[repo] Cloning autogluon/fev (shallow) ...")
-    subprocess.run(
-        ["git", "clone", "--depth=1", FEV_REPO_URL, str(FEV_REPO_DIR)],
-        check=True,
-    )
-    print(f"[repo] Cloned to {FEV_REPO_DIR}/")
 
 
 # ---------------------------------------------------------------------------
@@ -113,17 +102,22 @@ def get_predict_fn(model_name: str):
     if backend == "statsforecast":
         module = _load_example_module(
             "statsforecast_example",
-            FEV_REPO_DIR / "examples/statsforecast/evaluate_model.py",
+            LOCAL_EXAMPLES_DIR / "statsforecast/evaluate_model.py",
         )
     elif backend == "chronos":
         module = _load_example_module(
             "chronos_example",
-            FEV_REPO_DIR / "examples/chronos/evaluate_model.py",
+            LOCAL_EXAMPLES_DIR / "chronos/evaluate_model.py",
         )
     elif backend == "chronos_2":
         module = _load_example_module(
             "chronos_2_example",
-            FEV_REPO_DIR / "examples/chronos-2/evaluate_model.py",
+            LOCAL_EXAMPLES_DIR / "chronos-2/evaluate_model.py",
+        )
+    elif backend == "mlforecast":
+        module = _load_example_module(
+            "mlforecast_example",
+            LOCAL_EXAMPLES_DIR / "mlforecast/evaluate_model.py",
         )
     else:
         raise ValueError(f"Unknown backend: {backend}")
@@ -148,17 +142,21 @@ def build_predict_kwargs(model_name: str) -> dict:
         }
 
     if backend == "chronos_2":
-        # chronos-2 handles multivariate natively (as_univariate=False).
         # Model is hosted on HuggingFace as autogluon/chronos-t5-large;
         # the fev example uses the S3 path s3://autogluon/chronos-2 which
         # requires AWS credentials. Override with --chronos2-model if needed.
+        # batch_size=16 avoids OOM on tasks with many items; the model's
+        # built-in max horizon is 64 so it autoregressively extends for
+        # longer horizons — quality may degrade but predictions still run.
         return {
             "model_name": "autogluon/chronos-t5-large",
             "device_map": device,
             "torch_dtype": dtype,
-            "as_univariate": False,
-            "predict_batches_jointly": True,
+            "batch_size": 16,
         }
+
+    if backend == "mlforecast":
+        return {"model_name": model_name}
 
     raise ValueError(f"Unknown backend: {backend}")
 
@@ -167,18 +165,20 @@ def build_predict_kwargs(model_name: str) -> dict:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def sanitize(values) -> list:
     """Replace NaN/Inf with None for safe JSON/Parquet serialisation."""
     return [
-        None if (v is None or (isinstance(v, float) and not math.isfinite(v))) else float(v)
+        None
+        if (v is None or (isinstance(v, float) and not math.isfinite(v)))
+        else float(v)
         for v in values
     ]
 
 
 def needs_context(task_dir: Path, num_windows: int) -> bool:
     return any(
-        not (task_dir / f"context_w{w}.parquet").exists()
-        for w in range(num_windows)
+        not (task_dir / f"context_w{w}.parquet").exists() for w in range(num_windows)
     )
 
 
@@ -186,14 +186,14 @@ def needs_model(model_dir: Path, num_windows: int) -> bool:
     if not (model_dir / "info.json").exists():
         return True
     return any(
-        not (model_dir / f"window_{w}.parquet").exists()
-        for w in range(num_windows)
+        not (model_dir / f"window_{w}.parquet").exists() for w in range(num_windows)
     )
 
 
 # ---------------------------------------------------------------------------
 # Core per-task logic
 # ---------------------------------------------------------------------------
+
 
 def save_context_and_ground_truth(task: fev.Task, task_dir: Path) -> None:
     """Save context and ground truth for each evaluation window."""
@@ -301,6 +301,7 @@ def process_task(task: fev.Task, models: list[str], out_dir: Path) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate fev_bench forecasts for static visualization.",
@@ -344,11 +345,20 @@ examples:
         ),
     )
     parser.add_argument(
+        "--benchmark",
+        choices=list(BENCHMARK_YAMLS),
+        default="fev_bench",
+        help=(
+            "Which benchmark YAML to load tasks from. "
+            "Choices: fev_bench (default, ~100 tasks), foundation_fails (17 tasks)."
+        ),
+    )
+    parser.add_argument(
         "--tasks",
         type=int,
         default=None,
         metavar="N",
-        help="Limit to the first N tasks (default: all 100).",
+        help="Limit to the first N tasks (default: all).",
     )
     parser.add_argument(
         "--output-dir",
@@ -359,11 +369,9 @@ examples:
     )
     args = parser.parse_args()
 
-    # 1. Ensure the fev repo is available
-    ensure_fev_repo()
-
-    # 2. Load benchmark tasks from local YAML
-    with open(TASKS_YAML) as f:
+    # 1. Load benchmark tasks from local YAML
+    tasks_yaml = BENCHMARK_YAMLS[args.benchmark]
+    with open(tasks_yaml) as f:
         yaml_data = yaml.safe_load(f)
     benchmark = fev.Benchmark.from_list(yaml_data["tasks"])
     tasks = benchmark.tasks[: args.tasks] if args.tasks else benchmark.tasks
@@ -372,7 +380,7 @@ examples:
     print(f"Tasks  : {len(tasks)}")
     print(f"Output : {args.output_dir}/\n")
 
-    # 3. Generate forecasts task by task
+    # 2. Generate forecasts task by task
     for i, task in enumerate(tasks):
         print(f"[{i + 1}/{len(tasks)}] {task.dataset_config}")
         try:

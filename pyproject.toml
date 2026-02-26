@@ -17,6 +17,11 @@ dependencies = [
     "python-multipart>=0.0.9",
     "huggingface-hub>=0.20.0",
     "pyyaml>=6.0",
+    "mlforecast==0.14.0",
+    "optuna==4.6.0",
+    "lightgbm==4.6.0",
+    "catboost==1.2.8",
+    "autogluon.timeseries==1.5.0",
 ]
 
 [build-system]

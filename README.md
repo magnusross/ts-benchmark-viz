@@ -23,7 +23,7 @@ app.py (FastAPI)               # reads Parquet, serves to browser
 templates/index.html           # Chart.js visualisation
 ```
 
-Forecast generation clones `autogluon/fev` and uses the official `predict_with_model` functions from the example scripts verbatim, so the outputs are identical to the published benchmark results.
+Forecast generation uses `predict_with_model` functions from locally stored copies of the `autogluon/fev` example scripts (see `examples/`), so the outputs closely match the published benchmark results.
 
 ## Requirements
 
@@ -42,7 +42,7 @@ uv sync --no-install-project
 
 ## Generating forecasts
 
-Forecasts must be generated before the app can display anything. The script clones `autogluon/fev` into `fev_repo/` on first run.
+Forecasts must be generated before the app can display anything.
 
 ```bash
 # Quick test — 3 tasks, two fast models (~2 min on CPU):
@@ -58,7 +58,7 @@ uv run python generate_forecasts.py --models chronos_bolt_tiny
 uv run python generate_forecasts.py --models chronos_2
 
 # Full benchmark — everything at once (GPU strongly recommended):
-uv run python generate_forecasts.py --models naive seasonal_naive auto_ets auto_arima chronos_bolt_tiny chronos_2
+uv run python generate_forecasts.py --models naive seasonal_naive auto_ets auto_arima chronos_bolt_tiny chronos_2 lightgbm catboost
 ```
 
 Already-complete task/model combinations are skipped automatically, so runs can be interrupted and resumed freely, and models can be added incrementally.
@@ -111,16 +111,33 @@ Multiple workers are fine since the app is stateless (reads only from disk).
 ts-benchmark-viz/
 ├── app.py                          # FastAPI backend — reads from forecasts/
 ├── generate_forecasts.py           # Offline forecast generation script
+├── examples/                       # Local copies of autogluon/fev example scripts
+│   ├── statsforecast/              #   (minor modifications vs. upstream — see below)
+│   ├── chronos/
+│   ├── chronos-2/
+│   └── mlforecast/
 ├── templates/
 │   └── index.html                  # Single-page frontend (Chart.js)
 ├── benchmarks/
 │   └── fev_bench/
 │       └── tasks.yaml              # Benchmark task definitions (from autogluon/fev)
 ├── forecasts/                      # Generated data (not in git)
-├── fev_repo/                       # Cloned autogluon/fev (not in git)
 ├── pyproject.toml
 └── uv.lock
 ```
+
+## Example scripts
+
+The `examples/` directory contains local copies of the prediction scripts from [`autogluon/fev`](https://github.com/autogluon/fev/tree/main/examples). They are kept here so the codebase is self-contained and modifications persist across runs.
+
+The copies differ from upstream only where necessary:
+
+| Script | Change vs. upstream |
+|---|---|
+| `statsforecast/evaluate_model.py` | Drops exogenous columns before fitting — prevents AutoARIMA from fitting an ARIMAX model and crashing when `X_df` is not supplied at forecast time |
+| `chronos/evaluate_model.py` | Renames `context=` → `inputs=` in `predict_quantiles()` to match the updated Chronos v2 API |
+| `chronos-2/evaluate_model.py` | Removes `as_univariate` and `predict_batches_jointly` args from `predict_fev()`, which were dropped in a later API version |
+| `mlforecast/evaluate_model.py` | Adds a thin `predict_with_model` wrapper to match the common interface; suppresses `FutureWarning` from pandas `groupby` |
 
 ## Models
 
@@ -132,5 +149,7 @@ ts-benchmark-viz/
 | AutoARIMA | Statistical | Auto-selects ARIMA order |
 | Chronos-Bolt-Tiny | Foundation model | Zero-shot transformer, ~50M params |
 | Chronos-2 | Foundation model | Zero-shot transformer, ~710M params (`autogluon/chronos-t5-large`) |
+| LightGBM | ML | Recursive gradient-boosted trees with optional HPO via Optuna |
+| CatBoost | ML | Recursive gradient-boosted trees with optional HPO via Optuna |
 
-Statistical models use [StatsForecast](https://github.com/Nixtla/statsforecast). Chronos uses [chronos-forecasting](https://github.com/amazon-science/chronos-forecasting) v2. Both use the exact configurations from the `autogluon/fev` example scripts.
+Statistical models use [StatsForecast](https://github.com/Nixtla/statsforecast). Chronos uses [chronos-forecasting](https://github.com/amazon-science/chronos-forecasting) v2. ML models use [MLForecast](https://github.com/Nixtla/mlforecast) with [autogluon.timeseries](https://auto.gluon.ai/stable/tutorials/timeseries/index.html) for frequency-aware lag/feature selection. All use the configurations from the `autogluon/fev` example scripts.
