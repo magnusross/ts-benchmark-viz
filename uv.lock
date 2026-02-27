@@ -5021,51 +5021,62 @@ name = "ts-benchmark-viz"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "autogluon-timeseries" },
-    { name = "catboost" },
-    { name = "chronos-forecasting" },
     { name = "datasets" },
     { name = "fastapi", extra = ["standard"] },
     { name = "fev" },
     { name = "huggingface-hub" },
-    { name = "ipykernel" },
     { name = "jinja2" },
-    { name = "lightgbm" },
-    { name = "mlforecast" },
-    { name = "nbformat" },
     { name = "numpy" },
-    { name = "optuna" },
     { name = "pandas" },
+    { name = "pyarrow" },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+generate = [
+    { name = "autogluon-timeseries" },
+    { name = "catboost" },
+    { name = "chronos-forecasting" },
+    { name = "lightgbm" },
+    { name = "mlforecast" },
+    { name = "optuna" },
     { name = "statsforecast" },
     { name = "torch" },
+]
+notebooks = [
+    { name = "ipykernel" },
+    { name = "nbformat" },
     { name = "umap-learn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "autogluon-timeseries", specifier = "==1.5.0" },
-    { name = "catboost", specifier = "==1.2.8" },
-    { name = "chronos-forecasting", specifier = ">=2.0.0" },
+    { name = "autogluon-timeseries", marker = "extra == 'generate'", specifier = "==1.5.0" },
+    { name = "catboost", marker = "extra == 'generate'", specifier = "==1.2.8" },
+    { name = "chronos-forecasting", marker = "extra == 'generate'", specifier = ">=2.0.0" },
     { name = "datasets", specifier = ">=2.15.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.0" },
     { name = "fev", specifier = ">=0.2.0" },
     { name = "huggingface-hub", specifier = ">=0.20.0" },
-    { name = "ipykernel", specifier = ">=7.2.0" },
+    { name = "ipykernel", marker = "extra == 'notebooks'", specifier = ">=7.2.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
-    { name = "lightgbm", specifier = "==4.6.0" },
-    { name = "mlforecast", specifier = "==0.14.0" },
-    { name = "nbformat", specifier = ">=5.10.4" },
+    { name = "lightgbm", marker = "extra == 'generate'", specifier = "==4.6.0" },
+    { name = "mlforecast", marker = "extra == 'generate'", specifier = "==0.14.0" },
+    { name = "nbformat", marker = "extra == 'notebooks'", specifier = ">=5.10.4" },
     { name = "numpy", specifier = ">=1.24.0" },
-    { name = "optuna", specifier = "==4.6.0" },
+    { name = "optuna", marker = "extra == 'generate'", specifier = "==4.6.0" },
     { name = "pandas", specifier = ">=2.0.0" },
+    { name = "pyarrow", specifier = ">=14.0.0" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "statsforecast", specifier = ">=1.7.0" },
-    { name = "torch", specifier = ">=2.0.0" },
-    { name = "umap-learn", specifier = ">=0.5.11" },
+    { name = "statsforecast", marker = "extra == 'generate'", specifier = ">=1.7.0" },
+    { name = "torch", marker = "extra == 'generate'", specifier = ">=2.0.0" },
+    { name = "umap-learn", marker = "extra == 'notebooks'", specifier = ">=0.5.11" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
+provides-extras = ["generate", "notebooks"]
 
 [[package]]
 name = "typer"

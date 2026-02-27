@@ -91,6 +91,28 @@ uv run uvicorn app:app --host 0.0.0.0 --port 8000
 
 Multiple workers are fine since the app is stateless (reads only from disk).
 
+## Running with Docker
+
+The app can be run persistently in a Docker container. The `forecasts/` directory is mounted from the host at runtime, so no rebuild is needed when new forecasts are generated.
+
+```bash
+# Build the image (first time, or after code changes):
+docker compose build
+
+# Start in the background:
+docker compose up -d
+
+# View logs:
+docker compose logs -f
+
+# Stop:
+docker compose down
+```
+
+Then open [http://localhost:8000](http://localhost:8000), or `http://<server-ip>:8000` from another machine on the network.
+
+The Docker image installs only the lightweight serving dependencies. Forecast generation should still be done on the host using `uv run python generate_forecasts.py ...` (see above).
+
 ## Usage
 
 1. **Pick a task** from the sidebar. Searchable by dataset name. Badges show frequency, forecast horizon (`h`), seasonality (`s`), number of variables, and number of evaluation windows.

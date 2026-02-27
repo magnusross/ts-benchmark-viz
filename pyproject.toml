@@ -5,23 +5,34 @@ description = "Time Series Benchmark Visualization"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    # Serving — required to run the web app
     "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
     "fev>=0.2.0",
-    "statsforecast>=1.7.0",
-    "chronos-forecasting>=2.0.0",
-    "torch>=2.0.0",
     "datasets>=2.15.0",
     "pandas>=2.0.0",
+    "pyarrow>=14.0.0",
     "numpy>=1.24.0",
     "jinja2>=3.1.0",
     "python-multipart>=0.0.9",
     "huggingface-hub>=0.20.0",
     "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Everything needed to generate forecasts
+generate = [
+    "statsforecast>=1.7.0",
+    "chronos-forecasting>=2.0.0",
+    "torch>=2.0.0",
     "mlforecast==0.14.0",
     "optuna==4.6.0",
     "lightgbm==4.6.0",
     "catboost==1.2.8",
     "autogluon.timeseries==1.5.0",
+]
+# Notebook / analysis extras
+notebooks = [
     "umap-learn>=0.5.11",
     "nbformat>=5.10.4",
     "ipykernel>=7.2.0",
