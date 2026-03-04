@@ -4,10 +4,12 @@ Serves pre-generated forecasts from the forecasts/ directory.
 Run generate_forecasts.py first to populate it.
 """
 
+import logging
 import math
 import time
 from pathlib import Path
 
+from markdown_it import MarkdownIt
 import fev
 import pandas as pd
 import pyarrow.parquet as pq
@@ -29,14 +31,39 @@ templates = Jinja2Templates(directory="templates")
 
 TASKS_YAML = Path("benchmarks/fev_bench/tasks.yaml")
 FORECASTS_DIR = Path("forecasts")
+ABOUT_MD = Path("about.md")
+
+_md = MarkdownIt("commonmark")
+
+
+def _render_about() -> str:
+    text = ABOUT_MD.read_text(encoding="utf-8") if ABOUT_MD.exists() else ""
+    return _md.render(text)
+
+
 RESULTS_BASE_URL = "https://raw.githubusercontent.com/autogluon/fev/refs/heads/main/benchmarks/fev_bench/results"
+RESULTS_DIR = Path("benchmarks/fev_bench/results")
+
+logger = logging.getLogger(__name__)
+
+# Models included in the app (controls benchmark metrics loading and available-models filtering)
+INCLUDED_MODELS: list[str] = [
+    "naive",
+    "seasonal_naive",
+    "auto_ets",
+    "autoar",
+    "chronos_bolt_tiny",
+    "chronos_2",
+    "lightgbm",
+    "catboost",
+]
 
 # Mapping from webapp model id → CSV filename (and expected model_name prefix for dedup)
 _MODEL_CSV_MAP = {
     "naive": "naive.csv",
     "seasonal_naive": "seasonal_naive.csv",
-    "auto_arima": "autoarima.csv",
     "auto_ets": "autoets.csv",
+    "autoar": "autoar.csv",
     "chronos_bolt_tiny": "chronos-bolt.csv",
     "chronos_2": "chronos-2.csv",
     "lightgbm": "lightgbm.csv",
@@ -44,40 +71,68 @@ _MODEL_CSV_MAP = {
 }
 
 
+def _parse_results_df(df: pd.DataFrame) -> dict[str, dict]:
+    """Parse a results DataFrame into {task_name_lower: {"MASE": float, "SQL": float}}."""
+    task_metrics: dict[str, dict] = {}
+    for _, row in df.iterrows():
+        task = str(row.get("task_name", "")).strip()
+        if not task:
+            continue
+        mase = row.get("MASE")
+        sql = row.get("SQL")
+        task_metrics[task.lower()] = {
+            "MASE": None
+            if (mase is None or (isinstance(mase, float) and not math.isfinite(mase)))
+            else round(float(mase), 4),
+            "SQL": None
+            if (sql is None or (isinstance(sql, float) and not math.isfinite(sql)))
+            else round(float(sql), 4),
+        }
+    return task_metrics
+
+
 def _load_benchmark_metrics() -> dict[str, dict[str, dict]]:
     """Load MASE and SQL per task from each model's results CSV.
+
+    First looks in RESULTS_DIR for a local CSV; if not found, fetches from
+    RESULTS_BASE_URL.  Logs a warning and skips the model if neither source
+    is available.
 
     Returns: {model_id: {task_name_lower: {"MASE": float, "SQL": float}}}
     """
     out: dict[str, dict[str, dict]] = {}
     for model_id, csv_file in _MODEL_CSV_MAP.items():
+        local_path = RESULTS_DIR / csv_file
+        # 1. Try local file first
+        if local_path.exists():
+            try:
+                df = pd.read_csv(local_path)
+                out[model_id] = _parse_results_df(df)
+                continue
+            except Exception as exc:
+                logger.warning("Failed to read local results %s: %s", local_path, exc)
+        # 2. Fall back to remote URL
         url = f"{RESULTS_BASE_URL}/{csv_file}"
         try:
             df = pd.read_csv(url)
-            task_metrics: dict[str, dict] = {}
-            for _, row in df.iterrows():
-                task = str(row.get("task_name", "")).strip()
-                if not task:
-                    continue
-                mase = row.get("MASE")
-                sql = row.get("SQL")
-                task_metrics[task.lower()] = {
-                    "MASE": None
-                    if (
-                        mase is None
-                        or (isinstance(mase, float) and not math.isfinite(mase))
-                    )
-                    else round(float(mase), 4),
-                    "SQL": None
-                    if (
-                        sql is None
-                        or (isinstance(sql, float) and not math.isfinite(sql))
-                    )
-                    else round(float(sql), 4),
-                }
-            out[model_id] = task_metrics
-        except Exception:
-            pass
+            out[model_id] = _parse_results_df(df)
+            try:
+                RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+                df.to_csv(local_path, index=False)
+                logger.info("Cached remote results to %s", local_path)
+            except Exception as save_exc:
+                logger.warning(
+                    "Failed to cache results to %s: %s", local_path, save_exc
+                )
+        except Exception as exc:
+            logger.warning(
+                "Could not load results for model '%s': "
+                "not found at '%s' and failed to fetch from '%s' (%s)",
+                model_id,
+                local_path,
+                url,
+                exc,
+            )
     return out
 
 
@@ -127,12 +182,14 @@ def _infer_freq(seasonality: int, dataset_config: str) -> str:
 
 
 def _available_models(dataset_config: str) -> list[str]:
-    """Scan forecasts/<dataset_config>/ for completed model directories."""
+    """Scan forecasts/<dataset_config>/ for completed model directories that are in INCLUDED_MODELS."""
     task_dir = FORECASTS_DIR / dataset_config
     if not task_dir.exists():
         return []
     return sorted(
-        d.name for d in task_dir.iterdir() if d.is_dir() and (d / "info.json").exists()
+        d.name
+        for d in task_dir.iterdir()
+        if d.is_dir() and (d / "info.json").exists() and d.name in INCLUDED_MODELS
     )
 
 
@@ -207,7 +264,7 @@ class ForecastRequest(BaseModel):
 async def index(request: Request):
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "tasks_meta": TASKS_META},
+        {"request": request, "tasks_meta": TASKS_META, "about_html": _render_about()},
     )
 
 
