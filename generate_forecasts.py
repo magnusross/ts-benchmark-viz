@@ -27,7 +27,7 @@ uv run python generate_forecasts.py --tasks 3 --models seasonal_naive auto_ets
 uv run python generate_forecasts.py
 
 # Full benchmark — all stat models + Chronos-Bolt-Tiny + Chronos-2 (GPU recommended):
-uv run python generate_forecasts.py --models naive seasonal_naive auto_ets auto_arima chronos_bolt_tiny chronos_2
+uv run python generate_forecasts.py --models naive seasonal_naive auto_ets auto_arima chronos_bolt_tiny chronos_2 autoar
 
 # Add a model to already-generated data (done tasks/models are skipped automatically):
 uv run python generate_forecasts.py --models chronos_2
@@ -75,6 +75,7 @@ AVAILABLE_MODELS = {
     "chronos_2": "chronos_2",
     "lightgbm": "mlforecast",
     "catboost": "mlforecast",
+    "autoar": "autoar",
 }
 DEFAULT_MODELS = ["seasonal_naive", "auto_ets"]
 
@@ -119,6 +120,11 @@ def get_predict_fn(model_name: str):
             "mlforecast_example",
             LOCAL_EXAMPLES_DIR / "mlforecast/evaluate_model.py",
         )
+    elif backend == "autoar":
+        module = _load_example_module(
+            "autoar_example",
+            LOCAL_EXAMPLES_DIR / "autoar/evaluate_model.py",
+        )
     else:
         raise ValueError(f"Unknown backend: {backend}")
     return module.predict_with_model
@@ -157,6 +163,9 @@ def build_predict_kwargs(model_name: str) -> dict:
 
     if backend == "mlforecast":
         return {"model_name": model_name}
+
+    if backend == "autoar":
+        return {}
 
     raise ValueError(f"Unknown backend: {backend}")
 
@@ -317,6 +326,9 @@ models available:
                     Uses autogluon/chronos-t5-large from HuggingFace.
                     For the S3-hosted autogluon model, patch build_predict_kwargs
                     to use model_name="s3://autogluon/chronos-2".
+  lightgbm          LightGBM (MLForecast)
+  catboost          CatBoost (MLForecast)
+  autoar            AutoAR (supervised AR, KPSS differencing + BIC lag selection)
 
 examples:
   # Quick test — 3 tasks, two fast models:
