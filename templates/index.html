@@ -43,7 +43,8 @@
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
       font-size: 12px;
       line-height: 1.55;
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
@@ -219,12 +220,28 @@
     }
     .nav-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
     .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .nav-counter {
-      font-size: 11px;
-      color: var(--subtext1);
-      min-width: 60px;
-      text-align: center;
+    .nav-counter-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
+    .nav-input {
+      background: var(--surface0);
+      border: 1px solid var(--surface1);
+      border-radius: 4px;
+      color: var(--subtext1);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 2px 4px;
+      width: 36px;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+    .nav-input::-webkit-outer-spin-button,
+    .nav-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .nav-input:focus { outline: none; border-color: var(--blue); }
+    .nav-sep { font-size: 10px; color: var(--overlay0); }
+    .nav-total { font-size: 11px; color: var(--overlay0); min-width: 18px; }
 
     /* Model toggles */
     .model-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -477,7 +494,13 @@
         <span class="ctrl-label">Window</span>
         <div class="nav-group">
           <button class="nav-btn" id="winPrev" onclick="navigate('window',-1)">‹</button>
-          <span class="nav-counter" id="winCounter">1 / 1</span>
+          <div class="nav-counter-group">
+            <input type="number" class="nav-input" id="winInput" value="1" min="1" max="1"
+                   onchange="navigateTo('window', this.value)"
+                   onkeydown="if(event.key==='Enter') navigateTo('window', this.value)" />
+            <span class="nav-sep">/</span>
+            <span class="nav-total" id="winTotal">1</span>
+          </div>
           <button class="nav-btn" id="winNext" onclick="navigate('window',+1)">›</button>
         </div>
       </div>
@@ -489,7 +512,13 @@
         <span class="ctrl-label">Series</span>
         <div class="nav-group">
           <button class="nav-btn" id="itemPrev" onclick="navigate('item',-1)">‹</button>
-          <span class="nav-counter" id="itemCounter">1 / 1</span>
+          <div class="nav-counter-group">
+            <input type="number" class="nav-input" id="itemInput" value="1" min="1" max="1"
+                   onchange="navigateTo('item', this.value)"
+                   onkeydown="if(event.key==='Enter') navigateTo('item', this.value)" />
+            <span class="nav-sep">/</span>
+            <span class="nav-total" id="itemTotal">1</span>
+          </div>
           <button class="nav-btn" id="itemNext" onclick="navigate('item',+1)">›</button>
         </div>
         <span id="itemId" style="font-size:10px;color:var(--overlay0);min-width:60px"></span>
@@ -635,13 +664,30 @@ function navigate(type, delta) {
 }
 
 function updateNavUI() {
-  document.getElementById('winCounter').textContent = `${windowIdx + 1} / ${nWindows}`;
+  const winInput = document.getElementById('winInput');
+  winInput.value = windowIdx + 1;
+  winInput.max = nWindows;
+  document.getElementById('winTotal').textContent = nWindows;
   document.getElementById('winPrev').disabled = windowIdx === 0;
   document.getElementById('winNext').disabled = windowIdx >= nWindows - 1;
 
-  document.getElementById('itemCounter').textContent = `${itemIdx + 1} / ${nItems}`;
+  const itemInput = document.getElementById('itemInput');
+  itemInput.value = itemIdx + 1;
+  itemInput.max = nItems;
+  document.getElementById('itemTotal').textContent = nItems;
   document.getElementById('itemPrev').disabled = itemIdx === 0;
   document.getElementById('itemNext').disabled = itemIdx >= nItems - 1;
+}
+
+function navigateTo(type, value) {
+  const v = parseInt(value, 10) - 1;
+  if (type === 'window') {
+    windowIdx = Math.max(0, Math.min(nWindows - 1, isNaN(v) ? windowIdx : v));
+  } else {
+    itemIdx = Math.max(0, Math.min(nItems - 1, isNaN(v) ? itemIdx : v));
+  }
+  updateNavUI();
+  debouncedForecast();
 }
 
 /* ── Model toggles ──────────────────────────────────────────────────────── */
