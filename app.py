@@ -27,7 +27,7 @@ templates = Jinja2Templates(directory="templates")
 # Load tasks
 # ---------------------------------------------------------------------------
 
-TASKS_YAML = Path("benchmarks/fev_bench/foundation_fails.yaml")
+TASKS_YAML = Path("benchmarks/fev_bench/tasks.yaml")
 FORECASTS_DIR = Path("forecasts")
 RESULTS_BASE_URL = "https://raw.githubusercontent.com/autogluon/fev/refs/heads/main/benchmarks/fev_bench/results"
 

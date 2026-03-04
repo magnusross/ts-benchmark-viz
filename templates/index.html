@@ -3,36 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TS Benchmark Viz</title>
+  <title>FEV Explorer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
   <style>
-    /* ── Catppuccin Mocha palette ──────────────────────────────────────── */
+    /* ── Light palette ─────────────────────────────────────────────────── */
     :root {
-      --base:    #1e1e2e;
-      --mantle:  #181825;
-      --crust:   #11111b;
-      --surface0:#313244;
-      --surface1:#45475a;
-      --surface2:#585b70;
-      --overlay0:#6c7086;
-      --overlay1:#7f849c;
-      --text:    #cdd6f4;
-      --subtext0:#a6adc8;
-      --subtext1:#bac2de;
-      --blue:    #89b4fa;
-      --lavender:#b4befe;
-      --mauve:   #cba6f7;
-      --red:     #f38ba8;
-      --peach:   #fab387;
-      --yellow:  #f9e2af;
-      --green:   #a6e3a1;
-      --teal:    #94e2d5;
-      --sky:     #89dceb;
-      --pink:    #f5c2e7;
+      --base:    #ffffff;
+      --mantle:  #f5f5f8;
+      --crust:   #eaeaef;
+      --surface0:#e4e4ec;
+      --surface1:#d0d0dc;
+      --surface2:#b8b8c8;
+      --overlay0:#8888a0;
+      --overlay1:#6c6c88;
+      --text:    #1e1e2e;
+      --subtext0:#4a4a6a;
+      --subtext1:#3a3a58;
+      --blue:    #3270c8;
+      --lavender:#4a5cc0;
+      --mauve:   #6c44c0;
+      --red:     #c44058;
+      --peach:   #c45c28;
+      --yellow:  #8a7000;
+      --green:   #287840;
+      --teal:    #1a7878;
+      --sky:     #1a78c0;
+      --pink:    #b83070;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -257,36 +257,20 @@
       transition: all 0.12s;
     }
     .model-toggle-btn.active { font-weight: 500; }
-    .model-toggle-btn[data-model="naive"].active               { border-color: #7f849c; color: #a6adc8; background: rgba(127,132,156,0.12); }
-    .model-toggle-btn[data-model="seasonal_naive"].active      { border-color: #89b4fa; color: #89b4fa; background: rgba(137,180,250,0.12); }
-    .model-toggle-btn[data-model="auto_ets"].active            { border-color: #a6e3a1; color: #a6e3a1; background: rgba(166,227,161,0.12); }
-    .model-toggle-btn[data-model="auto_arima"].active          { border-color: #f9e2af; color: #f9e2af; background: rgba(249,226,175,0.12); }
-    .model-toggle-btn[data-model="chronos_bolt_tiny"].active   { border-color: #cba6f7; color: #cba6f7; background: rgba(203,166,247,0.12); }
-    .model-toggle-btn[data-model="chronos_2"].active           { border-color: #f5c2e7; color: #f5c2e7; background: rgba(245,194,231,0.12); }
-    .model-toggle-btn[data-model="lightgbm"].active            { border-color: #fab387; color: #fab387; background: rgba(250,179,135,0.12); }
-    .model-toggle-btn[data-model="catboost"].active            { border-color: #94e2d5; color: #94e2d5; background: rgba(148,226,213,0.12); }
-    .model-toggle-btn[data-model="autoar"].active              { border-color: #eba0ac; color: #eba0ac; background: rgba(235,160,172,0.12); }
+    .model-toggle-btn[data-model="naive"].active               { border-color: #5c6270; color: #5c6270; background: rgba(92,98,112,0.10); }
+    .model-toggle-btn[data-model="seasonal_naive"].active      { border-color: #1a6cd4; color: #1a6cd4; background: rgba(26,108,212,0.10); }
+    .model-toggle-btn[data-model="auto_ets"].active            { border-color: #287840; color: #287840; background: rgba(40,120,64,0.10); }
+    .model-toggle-btn[data-model="auto_arima"].active          { border-color: #8a7000; color: #8a7000; background: rgba(138,112,0,0.10); }
+    .model-toggle-btn[data-model="chronos_bolt_tiny"].active   { border-color: #6c44c0; color: #6c44c0; background: rgba(108,68,192,0.10); }
+    .model-toggle-btn[data-model="chronos_2"].active           { border-color: #b83070; color: #b83070; background: rgba(184,48,112,0.10); }
+    .model-toggle-btn[data-model="lightgbm"].active            { border-color: #c45c28; color: #c45c28; background: rgba(196,92,40,0.10); }
+    .model-toggle-btn[data-model="catboost"].active            { border-color: #1a7878; color: #1a7878; background: rgba(26,120,120,0.10); }
+    .model-toggle-btn[data-model="autoar"].active              { border-color: #c03050; color: #c03050; background: rgba(192,48,80,0.10); }
 
     /* Context slider */
     input[type="range"] { accent-color: var(--mauve); cursor: pointer; width: 80px; }
 
-    /* Run button */
-    .run-btn {
-      background: linear-gradient(135deg, var(--mauve), var(--blue));
-      border: none;
-      border-radius: 6px;
-      color: var(--crust);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 11.5px;
-      font-weight: 600;
-      padding: 6px 16px;
-      margin-left: auto;
-      transition: opacity 0.12s;
-      white-space: nowrap;
-    }
-    .run-btn:hover { opacity: 0.88; }
-    .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
 
     /* ── Status bar ────────────────────────────────────────────────────── */
     .status-bar {
@@ -445,11 +429,7 @@
 <body>
 
 <header>
-  <div>
-    <div class="logo">ts<span>.</span>bench<span>.</span>viz</div>
-    <div class="tagline">fev bench · forecast explorer</div>
-  </div>
-  <div class="header-pill">Chronos-Bolt · StatsForecast · FEV tasks</div>
+  <div class="logo">FEV explorer</div>
 </header>
 
 <div class="shell">
@@ -542,7 +522,7 @@
         <div class="model-toggles" id="modelToggles"></div>
       </div>
 
-      <button class="run-btn" id="runBtn" onclick="runForecast()">▶ Load</button>
+
     </div>
 
     <!-- Benchmark metrics bar -->
@@ -586,15 +566,15 @@ function debouncedForecast(delay = 300) {
 }
 
 const MODEL_META = {
-  naive:             { label: 'Naïve',            color: '#7f849c', alpha: 'rgba(127,132,156,0.14)' },
-  seasonal_naive:    { label: 'Seas. Naïve',      color: '#89b4fa', alpha: 'rgba(137,180,250,0.14)' },
-  auto_ets:          { label: 'AutoETS',           color: '#a6e3a1', alpha: 'rgba(166,227,161,0.14)' },
-  auto_arima:        { label: 'AutoARIMA',         color: '#f9e2af', alpha: 'rgba(249,226,175,0.14)' },
-  chronos_bolt_tiny: { label: 'Chronos-Bolt-Tiny', color: '#cba6f7', alpha: 'rgba(203,166,247,0.16)' },
-  chronos_2:         { label: 'Chronos-2',         color: '#f5c2e7', alpha: 'rgba(245,194,231,0.16)' },
-  lightgbm:          { label: 'LightGBM',          color: '#fab387', alpha: 'rgba(250,179,135,0.16)' },
-  catboost:          { label: 'CatBoost',          color: '#94e2d5', alpha: 'rgba(148,226,213,0.16)' },
-  autoar:            { label: 'AutoAR',            color: '#eba0ac', alpha: 'rgba(235,160,172,0.16)' },
+  naive:             { label: 'Naïve',            color: '#5c6270', alpha: 'rgba(92,98,112,0.12)'   },
+  seasonal_naive:    { label: 'Seas. Naïve',      color: '#1a6cd4', alpha: 'rgba(26,108,212,0.12)'  },
+  auto_ets:          { label: 'AutoETS',           color: '#287840', alpha: 'rgba(40,120,64,0.12)'   },
+  auto_arima:        { label: 'AutoARIMA',         color: '#8a7000', alpha: 'rgba(138,112,0,0.12)'   },
+  chronos_bolt_tiny: { label: 'Chronos-Bolt-Tiny', color: '#6c44c0', alpha: 'rgba(108,68,192,0.14)'  },
+  chronos_2:         { label: 'Chronos-2',         color: '#b83070', alpha: 'rgba(184,48,112,0.14)'  },
+  lightgbm:          { label: 'LightGBM',          color: '#c45c28', alpha: 'rgba(196,92,40,0.14)'   },
+  catboost:          { label: 'CatBoost',          color: '#1a7878', alpha: 'rgba(26,120,120,0.14)'  },
+  autoar:            { label: 'AutoAR',            color: '#c03050', alpha: 'rgba(192,48,80,0.14)'   },
 };
 
 /* ── Model buttons ──────────────────────────────────────────────────────── */
@@ -726,18 +706,18 @@ function buildVarChart(canvasId, varData, targetCol, horizon) {
   const actualData   = [...Array(ctxLen - 1).fill(null), varData.context[ctxLen - 1], ...varData.actual_future];
 
   const datasets = [
-    { label: 'context', data: contextData, borderColor: '#cdd6f4', borderWidth: 1.5, pointRadius: 0, tension: 0, order: 100 },
-    { label: 'actual',  data: actualData,  borderColor: '#cdd6f4', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, tension: 0, order: 99 },
+    { label: 'context', data: contextData, borderColor: '#1e1e2e', borderWidth: 1.5, pointRadius: 0, tension: 0, order: 100 },
+    { label: 'actual',  data: actualData,  borderColor: '#1e1e2e', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, tension: 0, order: 99 },
   ];
 
-  let legendHtml = `<div class="legend-item"><div class="legend-line" style="background:#cdd6f4"></div><span>actual</span></div>`;
+  let legendHtml = `<div class="legend-item"><div class="legend-line" style="background:#1e1e2e"></div><span>actual</span></div>`;
 
   Object.entries(varData.forecasts).forEach(([modelId, forecast]) => {
     if (forecast.error) {
       legendHtml += `<div class="legend-item" style="color:var(--red)" title="${forecast.error}">⚠ ${modelId}</div>`;
       return;
     }
-    const meta = MODEL_META[modelId] || { label: modelId, color: '#fab387', alpha: 'rgba(250,179,135,0.14)' };
+    const meta = MODEL_META[modelId] || { label: modelId, color: '#c45c28', alpha: 'rgba(196,92,40,0.14)' };
 
     const bridge = varData.context[ctxLen - 1];
     const pad = Array(ctxLen - 1).fill(null);
@@ -768,11 +748,11 @@ function buildVarChart(canvasId, varData, targetCol, horizon) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#313244',
-          borderColor: '#45475a',
+          backgroundColor: '#ffffff',
+          borderColor: '#d0d0dc',
           borderWidth: 1,
-          titleColor: '#bac2de',
-          bodyColor: '#a6adc8',
+          titleColor: '#1e1e2e',
+          bodyColor: '#4a4a6a',
           padding: 8,
           callbacks: {
             title: items => `t = ${items[0].label}`,
@@ -790,14 +770,14 @@ function buildVarChart(canvasId, varData, targetCol, horizon) {
             sep: {
               type: 'line',
               xMin: sepX, xMax: sepX,
-              borderColor: '#f38ba8',
+              borderColor: '#c44058',
               borderWidth: 1.5,
               borderDash: [5, 4],
               label: {
                 display: true,
                 content: '→ forecast',
                 position: 'start',
-                color: '#f38ba8',
+                color: '#c44058',
                 backgroundColor: 'transparent',
                 font: { family: "'JetBrains Mono', monospace", size: 9 },
                 yAdjust: -6,
@@ -807,8 +787,8 @@ function buildVarChart(canvasId, varData, targetCol, horizon) {
         },
       },
       scales: {
-        x: { ticks: { color: '#6c7086', maxTicksLimit: 10, font: { family: "'JetBrains Mono', monospace", size: 9 } }, grid: { color: '#313244' }, border: { color: '#45475a' } },
-        y: { ticks: { color: '#6c7086', font: { family: "'JetBrains Mono', monospace", size: 9 }, callback: v => Number(v).toPrecision(4) }, grid: { color: '#313244' }, border: { color: '#45475a' } },
+        x: { ticks: { color: '#8888a0', maxTicksLimit: 10, font: { family: "'JetBrains Mono', monospace", size: 9 } }, grid: { color: 'rgba(0,0,0,0.06)' }, border: { color: '#d0d0dc' } },
+        y: { ticks: { color: '#8888a0', font: { family: "'JetBrains Mono', monospace", size: 9 }, callback: v => Number(v).toPrecision(4) }, grid: { color: 'rgba(0,0,0,0.06)' }, border: { color: '#d0d0dc' } },
       },
     },
   });
@@ -864,8 +844,6 @@ async function runForecast() {
   const models = getSelectedModels();
   if (!models.length) { setStatus('error', 'select at least one model'); return; }
 
-  const btn = document.getElementById('runBtn');
-  btn.disabled = true;
   document.getElementById('emptyState')?.remove();
   setStatus('running', `loading task ${TASKS_META[selectedTaskIdx].dataset_config} · window ${windowIdx + 1} · series ${itemIdx + 1}…`);
 
@@ -910,8 +888,6 @@ async function runForecast() {
     if (!document.getElementById('chartPanel').children.length) {
       document.getElementById('chartPanel').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-title">request failed</div><div class="empty-hint">${e.message}</div></div>`;
     }
-  } finally {
-    btn.disabled = false;
   }
 }
 
